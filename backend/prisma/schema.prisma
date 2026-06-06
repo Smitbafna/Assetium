@@ -1,0 +1,307 @@
+//  This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AssetStatus {
+  AVAILABLE
+  PARTIALLY_AVAILABLE
+  UNAVAILABLE
+  UNDER_MAINTENANCE
+  RETIRED
+}
+
+enum AssetCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  ISSUED
+  RETURNED
+  OVERDUE
+}
+
+enum NotificationType {
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  ASSET_ISSUED
+  ASSET_RETURN_REMINDER
+  ASSET_OVERDUE
+  MAINTENANCE_SCHEDULED
+  SYSTEM
+}
+
+enum AuditAction {
+  USER_REGISTERED
+  USER_LOGIN
+  USER_LOGOUT
+  ASSET_CREATED
+  ASSET_UPDATED
+  ASSET_DELETED
+  BOOKING_CREATED
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  ASSET_ISSUED
+  ASSET_RETURNED
+  ASSET_OVERDUE_FLAGGED
+  MAINTENANCE_CREATED
+  MAINTENANCE_RESOLVED
+  CATEGORY_CREATED
+  CATEGORY_UPDATED
+  CATEGORY_DELETED
+}
+
+// ─────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  avatarUrl    String?
+  phone        String?
+  department   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  bookings       Booking[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+  damageReports  DamageReport[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────
+// CATEGORY
+// ─────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  iconUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assets Asset[]
+
+  @@map("categories")
+}
+
+// ─────────────────────────────────────────────
+// ASSET
+// ─────────────────────────────────────────────
+
+model Asset {
+  id               String         @id @default(cuid())
+  name             String
+  description      String?
+  categoryId       String
+  totalQuantity    Int            @default(1)
+  availableQuantity Int           @default(1)
+  status           AssetStatus    @default(AVAILABLE)
+  condition        AssetCondition @default(GOOD)
+  location         String?
+  serialNumber     String?        @unique
+  purchaseDate     DateTime?
+  purchasePrice    Decimal?       @db.Decimal(10, 2)
+  imageUrl         String?
+  qrCode           String?        @unique
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // Relations
+  category         Category        @relation(fields: [categoryId], references: [id])
+  bookings         Booking[]
+  maintenanceLogs  MaintenanceLog[]
+  damageReports    DamageReport[]
+  bookingItems     BookingItem[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([qrCode])
+  @@map("assets")
+}
+
+// ─────────────────────────────────────────────
+// BOOKING
+// ─────────────────────────────────────────────
+
+model Booking {
+  id              String        @id @default(cuid())
+  userId          String
+  status          BookingStatus @default(PENDING)
+  purpose         String
+  startDate       DateTime
+  endDate         DateTime
+  actualReturnDate DateTime?
+  adminNote       String?
+  isOverdue       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items        BookingItem[]
+  assets       Asset[]       // Many-to-many convenience relation via BookingItem
+  notifications Notification[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("bookings")
+}
+
+// Junction table for Booking <-> Asset (with quantity per asset)
+model BookingItem {
+  id           String   @id @default(cuid())
+  bookingId    String
+  assetId      String
+  quantity     Int      @default(1)
+  returnedQty  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  asset   Asset   @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, assetId])
+  @@index([bookingId])
+  @@index([assetId])
+  @@map("booking_items")
+}
+
+// ─────────────────────────────────────────────
+// MAINTENANCE
+// ─────────────────────────────────────────────
+
+model MaintenanceLog {
+  id          String         @id @default(cuid())
+  assetId     String
+  title       String
+  description String
+  condition   AssetCondition
+  resolvedAt  DateTime?
+  cost        Decimal?       @db.Decimal(10, 2)
+  performedBy String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("maintenance_logs")
+}
+
+// ─────────────────────────────────────────────
+// DAMAGE REPORT
+// ─────────────────────────────────────────────
+
+model DamageReport {
+  id          String   @id @default(cuid())
+  assetId     String
+  reportedBy  String
+  description String
+  imageUrl    String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [reportedBy], references: [id], onDelete: Restrict)
+
+  @@index([assetId])
+  @@index([reportedBy])
+  @@map("damage_reports")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  bookingId String?
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  action     AuditAction
+  entityType String      // e.g. "Asset", "Booking", "User"
+  entityId   String?
+  metadata   Json?       // Snapshot of before/after state or extra context
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
