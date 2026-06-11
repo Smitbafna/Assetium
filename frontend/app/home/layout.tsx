@@ -14,6 +14,9 @@ export default function DashboardLayout({
     { name: "Home", href: "/home" },
     { name: "Assets", href: "/home/assets" },
     { name: "Bookings", href: "/home/bookings" },
+     { name: "Categories", href: "/home/categories" },
+      { name: "History", href: "/home/history" },
+      { name: "Analytics", href: "/home/analytics" },
   ]
 
   return (
