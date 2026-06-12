@@ -1,54 +1,41 @@
 "use client"
 
-const assets = [
-  {
-    id: 1,
-    name: "Canon EOS 90D",
-    category: "Camera",
-    available: 3,
-    total: 5,
-    status: "Available",
-    condition: "Good",
-  },
-  {
-    id: 2,
-    name: "Sony A7 III",
-    category: "Camera",
-    available: 0,
-    total: 2,
-    status: "In Use",
-    condition: "Excellent",
-  },
-  {
-    id: 3,
-    name: "Studio Light Kit",
-    category: "Lighting",
-    available: 1,
-    total: 4,
-    status: "Low Stock",
-    condition: "Good",
-  },
-  {
-    id: 4,
-    name: "Wireless Microphone",
-    category: "Audio",
-    available: 8,
-    total: 10,
-    status: "Available",
-    condition: "Excellent",
-  },
-  {
-    id: 5,
-    name: "Stage Prop Set",
-    category: "Props",
-    available: 2,
-    total: 6,
-    status: "Maintenance",
-    condition: "Needs Repair",
-  },
-]
+import { useEffect, useState } from "react"
+
+type Asset = {
+  id: number
+  name: string
+  category: string
+  available: number
+  total: number
+  status: "Available" | "In Use" | "Low Stock" | "Maintenance"
+  condition: string
+}
 
 export default function AssetsPage() {
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/assets")
+        const data = await res.json()
+        setAssets(data)
+      } catch (err) {
+        console.error("Failed to fetch assets:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAssets()
+  }, [])
+
+  if (loading) {
+    return <div className="p-6">Loading assets...</div>
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -77,25 +64,11 @@ export default function AssetsPage() {
                 key={asset.id}
                 className="border-b hover:bg-muted/30"
               >
-                <td className="p-4 font-medium">
-                  {asset.name}
-                </td>
-
-                <td className="p-4">
-                  {asset.category}
-                </td>
-
-                <td className="p-4">
-                  {asset.available}
-                </td>
-
-                <td className="p-4">
-                  {asset.total}
-                </td>
-
-                <td className="p-4">
-                  {asset.condition}
-                </td>
+                <td className="p-4 font-medium">{asset.name}</td>
+                <td className="p-4">{asset.category}</td>
+                <td className="p-4">{asset.available}</td>
+                <td className="p-4">{asset.total}</td>
+                <td className="p-4">{asset.condition}</td>
 
                 <td className="p-4">
                   <span

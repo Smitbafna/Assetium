@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 import {
   Card,
   CardContent,
@@ -19,72 +21,78 @@ import {
   Cell,
 } from "recharts"
 
-const utilizationData = [
-  {
-    asset: "Camera",
-    bookings: 45,
-  },
-  {
-    asset: "Mic",
-    bookings: 62,
-  },
-  {
-    asset: "Lights",
-    bookings: 38,
-  },
-  {
-    asset: "Mixer",
-    bookings: 22,
-  },
-]
+const COLORS = ["#2563eb", "#16a34a", "#eab308", "#dc2626"]
 
-const categoryData = [
-  {
-    name: "Photography",
-    value: 35,
-  },
-  {
-    name: "Audio",
-    value: 40,
-  },
-  {
-    name: "Lighting",
-    value: 15,
-  },
-  {
-    name: "Costumes",
-    value: 10,
-  },
-]
+type Utilization = {
+  asset: string
+  bookings: number
+}
 
-const COLORS = [
-  "#2563eb",
-  "#16a34a",
-  "#eab308",
-  "#dc2626",
-]
+type Category = {
+  name: string
+  value: number
+}
+
+type Overview = {
+  totalAssets: number
+  activeBookings: number
+  utilization: number
+  overdue: number
+}
 
 export default function AnalyticsPage() {
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [utilizationData, setUtilizationData] = useState<Utilization[]>([])
+  const [categoryData, setCategoryData] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [overviewRes, utilRes, catRes] = await Promise.all([
+          fetch("http://localhost:3001/api/analytics/overview"),
+          fetch("http://localhost:3001/api/analytics/utilization"),
+          fetch("http://localhost:3001/api/analytics/categories"),
+        ])
+
+        const overviewData = await overviewRes.json()
+        const utilData = await utilRes.json()
+        const catData = await catRes.json()
+
+        setOverview(overviewData)
+        setUtilizationData(utilData)
+        setCategoryData(catData)
+      } catch (err) {
+        console.error("Failed to fetch analytics:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading || !overview) {
+    return <div className="p-6">Loading analytics...</div>
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">
-          Analytics Dashboard
-        </h1>
-
+        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
         <p className="text-muted-foreground">
           Resource utilization and inventory insights.
         </p>
       </div>
 
+      {/* Overview Cards */}
       <div className="grid md:grid-cols-4 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Total Assets</CardTitle>
           </CardHeader>
-
           <CardContent className="text-3xl font-bold">
-            92
+            {overview.totalAssets}
           </CardContent>
         </Card>
 
@@ -92,9 +100,8 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Active Bookings</CardTitle>
           </CardHeader>
-
           <CardContent className="text-3xl font-bold">
-            18
+            {overview.activeBookings}
           </CardContent>
         </Card>
 
@@ -102,9 +109,8 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Utilization</CardTitle>
           </CardHeader>
-
           <CardContent className="text-3xl font-bold">
-            74%
+            {overview.utilization}%
           </CardContent>
         </Card>
 
@@ -112,31 +118,26 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Overdue</CardTitle>
           </CardHeader>
-
           <CardContent className="text-3xl font-bold text-red-500">
-            3
+            {overview.overdue}
           </CardContent>
         </Card>
       </div>
 
+      {/* Charts */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>
-              Most Utilized Assets
-            </CardTitle>
+            <CardTitle>Most Utilized Assets</CardTitle>
           </CardHeader>
 
           <CardContent>
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-            >
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={utilizationData}>
                 <XAxis dataKey="asset" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="bookings" />
+                <Bar dataKey="bookings" fill="#2563eb" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -144,16 +145,11 @@ export default function AnalyticsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Category Distribution
-            </CardTitle>
+            <CardTitle>Category Distribution</CardTitle>
           </CardHeader>
 
           <CardContent>
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-            >
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={categoryData}
@@ -161,19 +157,12 @@ export default function AnalyticsPage() {
                   outerRadius={100}
                   label
                 >
-                  {categoryData.map(
-                    (_, index) => (
-                      <Cell
-                        key={index}
-                        fill={
-                          COLORS[
-                            index %
-                              COLORS.length
-                          ]
-                        }
-                      />
-                    )
-                  )}
+                  {categoryData.map((_, index) => (
+                    <Cell
+                      key={index}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
@@ -182,20 +171,16 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
+      {/* Top Assets */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Top Performing Assets
-          </CardTitle>
+          <CardTitle>Top Performing Assets</CardTitle>
         </CardHeader>
 
         <CardContent>
           <div className="space-y-3">
-            {utilizationData
-              .sort(
-                (a, b) =>
-                  b.bookings - a.bookings
-              )
+            {[...utilizationData]
+              .sort((a, b) => b.bookings - a.bookings)
               .map((asset, index) => (
                 <div
                   key={asset.asset}
@@ -204,10 +189,7 @@ export default function AnalyticsPage() {
                   <span>
                     #{index + 1} {asset.asset}
                   </span>
-
-                  <span>
-                    {asset.bookings} bookings
-                  </span>
+                  <span>{asset.bookings} bookings</span>
                 </div>
               ))}
           </div>

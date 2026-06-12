@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 import {
   Card,
   CardContent,
@@ -7,49 +9,43 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-const history = [
-  {
-    id: 1,
-    asset: "Canon DSLR Camera",
-    user: "John Doe",
-    status: "RETURNED",
-    issueDate: "01 Jun 2026",
-    returnDate: "05 Jun 2026",
-  },
-  {
-    id: 2,
-    asset: "Studio Light Kit",
-    user: "Jane Smith",
-    status: "RETURNED",
-    issueDate: "10 May 2026",
-    returnDate: "13 May 2026",
-  },
-  {
-    id: 3,
-    asset: "Wireless Microphone",
-    user: "Sarah Wilson",
-    status: "OVERDUE",
-    issueDate: "20 May 2026",
-    returnDate: "-",
-  },
-  {
-    id: 4,
-    asset: "Audio Mixer",
-    user: "Alex Brown",
-    status: "RETURNED",
-    issueDate: "15 Apr 2026",
-    returnDate: "18 Apr 2026",
-  },
-]
+type HistoryItem = {
+  id: number
+  asset: string
+  user: string
+  status: "RETURNED" | "OVERDUE"
+  issueDate: string
+  returnDate: string
+}
 
 export default function HistoryPage() {
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/history")
+        const data = await res.json()
+        setHistory(data)
+      } catch (err) {
+        console.error("Failed to fetch history:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchHistory()
+  }, [])
+
+  if (loading) {
+    return <div className="p-6">Loading history...</div>
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">
-          Borrowing History
-        </h1>
-
+        <h1 className="text-3xl font-bold">Borrowing History</h1>
         <p className="text-muted-foreground">
           View all past asset transactions.
         </p>
@@ -57,24 +53,16 @@ export default function HistoryPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Asset Borrowing Records
-          </CardTitle>
+          <CardTitle>Asset Borrowing Records</CardTitle>
         </CardHeader>
 
         <CardContent>
           <div className="space-y-4">
             {history.map((item) => (
-              <div
-                key={item.id}
-                className="border rounded-lg p-4"
-              >
+              <div key={item.id} className="border rounded-lg p-4">
                 <div className="flex justify-between">
                   <div>
-                    <h3 className="font-semibold">
-                      {item.asset}
-                    </h3>
-
+                    <h3 className="font-semibold">{item.asset}</h3>
                     <p className="text-sm text-muted-foreground">
                       Borrowed By: {item.user}
                     </p>
@@ -92,12 +80,8 @@ export default function HistoryPage() {
                 </div>
 
                 <div className="mt-3 text-sm">
-                  <p>
-                    Issue Date: {item.issueDate}
-                  </p>
-                  <p>
-                    Return Date: {item.returnDate}
-                  </p>
+                  <p>Issue Date: {item.issueDate}</p>
+                  <p>Return Date: {item.returnDate}</p>
                 </div>
               </div>
             ))}
